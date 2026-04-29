@@ -58,7 +58,7 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:5000';
+        const API_URL = '';
         const codeEditor = document.getElementById('python-code');
         const compileBtn = document.getElementById('compile-btn');
         const exampleSelect = document.getElementById('example-select');
@@ -71,7 +71,7 @@
 
         async function loadExample(name) {
             try {
-                const response = await fetch(`${API_URL}/api/examples/${name}`);
+                const response = await fetch(`/api/examples/${name}`);
                 const data = await response.json();
                 if (data.code) {
                     codeEditor.value = data.code;
@@ -105,7 +105,7 @@
             compileBtn.textContent = '⏳ Compiling...';
             updateStatus('Compiling...');            
             try {
-                const response = await fetch(`${API_URL}/api/transpile`, {
+                const response = await fetch(`/api/transpile`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code: code })
