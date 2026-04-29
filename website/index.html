@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Python to C Transpiler</title>
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            🐍 <span>Python → C</span> Transpiler
+        </div>
+        <div class="controls">
+            <select id="example-select" class="example-select">
+                <option value="demo">Demo Example</option>
+                <option value="simple">Simple Arithmetic</option>
+                <option value="conditional">Conditional Logic</option>
+                <option value="loop">While Loop</option>
+                <option value="python_list">List Example</option>
+            </select>
+            <button id="compile-btn">▶ Compile to C</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="pane">
+            <div class="pane-header">
+                <i>🐍</i> Python Code
+            </div>
+            <textarea id="python-code" placeholder="Enter Python code here..."></textarea>
+        </div>
+
+        <div class="pane">
+            <div class="pane-header">
+                <i>⚡</i> Output
+            </div>
+            <div class="tabs">
+                <button class="tab active" data-tab="c-code">C Code</button>
+                <button class="tab" data-tab="tokens">Tokens</button>
+                <button class="tab" data-tab="ast">AST</button>
+            </div>
+            <div id="c-code" class="tab-content active">
+                <div class="output-area" id="c-output">// C code will appear here</div>
+            </div>
+            <div id="tokens" class="tab-content">
+                <div class="output-area" id="tokens-output">// Tokens will appear here</div>
+            </div>
+            <div id="ast" class="tab-content">
+                <div class="output-area" id="ast-output">// AST will appear here</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status" id="status">
+        <span>Ready</span>
+        <span>Python → C Transpiler</span>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+        const codeEditor = document.getElementById('python-code');
+        const compileBtn = document.getElementById('compile-btn');
+        const exampleSelect = document.getElementById('example-select');
+        const statusBar = document.getElementById('status');
+        const cOutput = document.getElementById('c-output');
+        const tokensOutput = document.getElementById('tokens-output');
+        const astOutput = document.getElementById('ast-output');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        async function loadExample(name) {
+            try {
+                const response = await fetch(`${API_URL}/api/examples/${name}`);
+                const data = await response.json();
+                if (data.code) {
+                    codeEditor.value = data.code;
+                    updateStatus(`Loaded ${name} example`, false);
+                }
+            } catch (error) {
+                updateStatus(`Failed to load ${name} example`, true);
+            }
+        }
+
+        function updateStatus(message, isError = false) {
+            statusBar.querySelector('span:first-child').textContent = isError ? `❌ ${message}` : `✅ ${message}`;
+            if (isError) {
+                statusBar.style.background = '#f44336';
+                setTimeout(() => {
+                    if (statusBar.querySelector('span:first-child').textContent !== '✅ Ready') {
+                        statusBar.style.background = '#007acc';
+                    }
+                }, 3000);
+            } else {
+                statusBar.style.background = '#007acc';
+            }
+        }
+        async function compile() {
+            const code = codeEditor.value;
+            if (!code.trim()) {
+                updateStatus('Please enter some Python code', true);
+                return;
+            }
+            compileBtn.disabled = true;
+            compileBtn.textContent = '⏳ Compiling...';
+            updateStatus('Compiling...');            
+            try {
+                const response = await fetch(`${API_URL}/api/transpile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    cOutput.textContent = result.output;
+                    tokensOutput.textContent = Array.isArray(result.tokens) ? result.tokens.join('\n') : result.tokens;
+                    astOutput.textContent = result.ast;
+                    updateStatus('Compilation successful!');
+                    document.querySelector('[data-tab="c-code"]').click();
+                } else {
+                    cOutput.textContent = `ERROR:\n${result.error}`;
+                    tokensOutput.textContent = 'Tokenization failed';
+                    astOutput.textContent = 'Parsing failed';
+                    updateStatus(`Error: ${result.error.substring(0, 50)}...`, true);
+                }
+            } catch (error) {
+                cOutput.textContent = `Connection Error: ${error.message}\n\nMake sure server is running:\npython backend/server.py`;
+                tokensOutput.textContent = 'Server unreachable';
+                astOutput.textContent = 'Server unreachable';
+                updateStatus('Server not running!', true);
+            } finally {
+                compileBtn.disabled = false;
+                compileBtn.textContent = '▶ Compile to C';
+            }
+        }
+    
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === tabId) {
+                        content.classList.add('active');
+                    }
+                });
+            });
+        });
+        compileBtn.addEventListener('click', compile);
+        exampleSelect.addEventListener('change', (e) => {
+            loadExample(e.target.value);
+        });
+        codeEditor.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                compile();
+            }
+        });
+        loadExample('demo');
+    </script>
+</body>
+</html>
